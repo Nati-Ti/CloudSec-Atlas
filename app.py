@@ -33,6 +33,10 @@ def render_report(report, markdown_report: str) -> None:
     label_col.metric("Risk Level", report.risk_label)
     count_col.metric("Findings", len(report.findings))
 
+    render_section_header("Score Drivers")
+    for driver in report.score_drivers:
+        st.markdown(f"- {driver}")
+
     render_section_header("Architecture Summary")
     st.write(report.architecture_summary)
 
@@ -54,6 +58,7 @@ def render_report(report, markdown_report: str) -> None:
         with st.expander(f"{finding.severity}: {finding.title}", expanded=True):
             st.markdown(f"**Affected assets:** {', '.join(finding.affected_assets)}")
             st.markdown(f"**Evidence:** {finding.evidence}")
+            st.markdown(f"**Why this matters:** {finding.why_this_matters}")
             st.markdown(f"**Impact:** {finding.impact}")
             st.markdown(f"**Recommended fix:** {finding.recommendation}")
 

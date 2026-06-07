@@ -20,6 +20,7 @@ class Finding:
     impact: str
     recommendation: str
     affected_assets: List[str]
+    why_this_matters: str = ""
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ class AnalysisReport:
     architecture_summary: str
     assets: List[Asset]
     findings: List[Finding]
+    score_drivers: List[str]
     attack_paths: List[AttackPath]
     blast_radius: List[str]
     fix_roadmap: List[RoadmapItem]
