@@ -1,11 +1,9 @@
 # CloudSec Atlas Analysis Report
 
 ## Architecture Summary
-
 The submitted design appears to describe an AWS cloud environment with 6 detected asset area(s): Compute, Data Store, Identity, Network, Network / Application, Storage. CloudSec Atlas rates the current posture as Critical. The key risk chain is direct internet reachability to RDS, where the application stores customer profile data and billing metadata. The score is driven by direct internet reachability to the data tier.
 
 ## Detected Assets
-
 | Asset | Type | Exposure | Notes |
 | --- | --- | --- | --- |
 | Public application entry point | Network / Application | Internet-facing | Accepts inbound traffic from users or external clients. |
@@ -16,18 +14,15 @@ The submitted design appears to describe an AWS cloud environment with 6 detecte
 | Cloud network controls | Network | Boundary control | Defines routing, segmentation, and allowed inbound traffic. |
 
 ## Security Findings
-
 Overall risk: **Critical** (94/100)
 
 ### Score Drivers
-
 - Public RDS exposure: +40
 - Sensitive customer data in exposed data tier: +25
 - Broad PostgreSQL ingress from 0.0.0.0/0: +20
 - Missing WAF and recovery evidence: +9
 
 ### Critical: RDS appears directly reachable from the internet
-
 - ID: `CSA-001`
 - Confidence: High
 - Affected assets: RDS PostgreSQL database, Cloud network controls
@@ -39,7 +34,6 @@ Why this matters: A public RDS endpoint bypasses the normal application security
 - Recommended fix: Move RDS behind private subnets, restrict inbound access with Security Groups and NACLs, and require encrypted connections.
 
 ### High: Sensitive data is stored in RDS PostgreSQL database
-
 - ID: `CSA-018`
 - Confidence: High
 - Affected assets: RDS PostgreSQL database
@@ -51,7 +45,6 @@ Why this matters: The exposed data tier contains customer profile data and billi
 - Recommended fix: Keep RDS private, encrypt and back up sensitive records, restrict application access, and monitor data-tier activity.
 
 ### High: Broad inbound database access is exposed
-
 - ID: `CSA-019`
 - Confidence: High
 - Affected assets: RDS PostgreSQL database, Cloud network controls
@@ -63,7 +56,6 @@ Why this matters: The Security Group rule makes PostgreSQL reachable from any in
 - Recommended fix: Restrict PostgreSQL ingress to approved application Security Groups or private subnets only.
 
 ### Medium: RDS backup and recovery posture is not described
-
 - ID: `CSA-009`
 - Confidence: Medium
 - Affected assets: RDS PostgreSQL database
@@ -75,21 +67,19 @@ Why this matters: The architecture describes sensitive records in RDS but does n
 - Recommended fix: Enable automated backups, test restores, and protect snapshots from accidental or malicious deletion.
 
 ### Medium: Public application edge lacks described protective controls
-
 - ID: `CSA-010`
 - Confidence: Medium
 - Affected assets: Public application entry point
 - Evidence: A public ALB or API Gateway entry point is described, but AWS WAF, rate limiting, DDoS, or bot controls are not mentioned.
 
-Why this matters: The architecture has an internet-facing application edge, but no AWS WAF or rate-limit evidence. That leaves the public entry point easier to scan, abuse, and use as reconnaissance for the exposed data tier.
+Why this matters: The internet-facing edge is easier to scan, abuse, and use as reconnaissance for the exposed data tier.
 
 - Impact: The application is more exposed to commodity scanning, volumetric abuse, and simple exploit attempts.
-- Recommended fix: Add AWS WAF protections, request rate limits, managed DDoS protection, and application-layer alerting.
+- Recommended fix: Add AWS WAF protections, request rate limits, managed DDoS protection, ALB access logging, and application-layer alerting.
 
 ## Attack Paths
 
 ### Public application edge to exposed data tier
-
 - Difficulty: Low to Medium
 - Likely impact: Direct exposure of customer profile data and billing metadata through a reachable data-tier listener.
 - Steps:
@@ -106,7 +96,6 @@ Why this matters: The architecture has an internet-facing application edge, but 
 - Assets considered in scope: Public application entry point, Compute workload, RDS PostgreSQL database, Amazon S3 storage, Cloud identity and permissions, Cloud network controls.
 
 ## Prioritized Fix Roadmap
-
 | Priority | Action | Expected Outcome |
 | --- | --- | --- |
 | P0 | Disable public accessibility on RDS and remove 0.0.0.0/0 from PostgreSQL Security Group ingress. | Immediately removes direct internet reachability to the PostgreSQL listener. |
@@ -138,15 +127,11 @@ Why this matters: The architecture has an internet-facing application edge, but 
 ## Source Architecture Description
 
 ```text
-# Startup Public Database Scenario
+# AWS Startup Public Database
 
-A small SaaS startup runs an AWS web application behind an internet-facing load balancer.
-Two EC2 app servers sit in the same VPC as an RDS PostgreSQL database.
+A small SaaS startup runs an AWS web application behind an internet-facing load balancer. Two EC2 app servers sit in the same VPC as an RDS PostgreSQL database.
 
-The RDS database is publicly accessible for convenience during development, and the security
-group allows PostgreSQL traffic from 0.0.0.0/0. The EC2 instances use an IAM role that can
-read from S3 and write application logs. There is no WAF yet, and the team has not documented
-database backups or restore testing.
+The RDS database is publicly accessible for convenience during development, and the security group allows PostgreSQL traffic from 0.0.0.0/0. The EC2 instances use an IAM role that can read from S3 and write application logs. There is no AWS WAF yet, and the team has not documented database backups or restore testing.
 
 The application stores customer profile data and billing metadata in PostgreSQL.
 ```

@@ -1,4 +1,4 @@
-from agent.analyzer import analyze_architecture, render_report_markdown
+from agent.analyzer import analyze_architecture, detect_provider, render_report_markdown
 from agent.schemas import AnalysisReport, Asset, AttackPath, Finding, RoadmapItem
 
 __all__ = [
@@ -8,5 +8,6 @@ __all__ = [
     "Finding",
     "RoadmapItem",
     "analyze_architecture",
+    "detect_provider",
     "render_report_markdown",
 ]

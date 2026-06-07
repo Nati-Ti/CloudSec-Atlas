@@ -126,6 +126,10 @@ def render_report_markdown(report: AnalysisReport, source_description: str) -> s
     return "\n".join(lines)
 
 
+def detect_provider(architecture_text: str) -> str:
+    return _detect_provider(_normalize(architecture_text))
+
+
 def _detect_assets(text: str) -> List[Asset]:
     assets: List[Asset] = []
     terms = _provider_terms(text)
@@ -482,7 +486,7 @@ def _detect_findings(text: str, assets: List[Asset]) -> List[Finding]:
                 confidence="Medium",
                 evidence=f"A public {terms['edge_service']} entry point is described, but {terms['waf']}, rate limiting, DDoS, or bot controls are not mentioned.",
                 impact="The application is more exposed to commodity scanning, volumetric abuse, and simple exploit attempts.",
-                recommendation=f"Add {terms['waf']} protections, request rate limits, managed DDoS protection, and application-layer alerting.",
+                recommendation=f"Add {terms['waf']} protections, request rate limits, managed DDoS protection, {terms['edge_logging']}, and application-layer alerting.",
                 affected_assets=["Public application entry point"],
             )
         )
@@ -1087,6 +1091,7 @@ def _provider_terms(text: str) -> dict:
             "database": "RDS" if "rds" in text else "database",
             "network_rules": "Security Groups and NACLs",
             "edge_service": "ALB or API Gateway",
+            "edge_logging": "ALB access logging",
             "waf": "AWS WAF",
             "audit_logs": "CloudTrail logs",
             "monitoring": "CloudWatch",
@@ -1109,6 +1114,7 @@ def _provider_terms(text: str) -> dict:
             "database": "database",
             "network_rules": "NSGs",
             "edge_service": "App Service API",
+            "edge_logging": "App Service access logging",
             "waf": "Azure WAF",
             "audit_logs": "Azure activity logs",
             "monitoring": "Azure Monitor",
@@ -1131,6 +1137,7 @@ def _provider_terms(text: str) -> dict:
             "database": "database",
             "network_rules": "network firewall rules",
             "edge_service": "public API",
+            "edge_logging": "application edge access logging",
             "waf": "managed WAF",
             "audit_logs": "cloud audit logs",
             "monitoring": "central monitoring",
@@ -1326,7 +1333,7 @@ def _why_this_matters(text: str, finding: Finding) -> str:
         return "The architecture describes sensitive records in RDS but does not prove restore readiness. Without tested recovery, a destructive database event can become both a data-loss incident and an extended outage."
 
     if finding_id == "CSA-010":
-        return f"The architecture has an internet-facing application edge, but no {terms['waf']} or rate-limit evidence. That leaves the public entry point easier to scan, abuse, and use as reconnaissance for the exposed data tier."
+        return "The internet-facing edge is easier to scan, abuse, and use as reconnaissance for the exposed data tier."
 
     if finding_id == "CSA-002":
         return f"Public {terms['storage_access']} removes the identity check in front of stored data. Anyone who discovers the storage URL can try to retrieve accessible {terms['storage_object_plural']}."
@@ -1694,7 +1701,11 @@ def _backup_missing(text: str) -> bool:
 
 
 def _edge_protection_missing(text: str) -> bool:
-    if _has_any(text, ["no waf", "without waf", "waf disabled", "no rate limit", "without rate limiting"]):
+    if re.search(r"\b(no|without|missing)\s+(aws\s+|azure\s+|managed\s+|web application firewall\s+)?waf\b", text):
+        return True
+    if re.search(r"\bwaf\s+(is\s+)?(disabled|missing|not configured|not enabled)\b", text):
+        return True
+    if _has_any(text, ["waf disabled", "no rate limit", "without rate limiting"]):
         return True
     if _has_any(text, ["not configured", "not enabled"]) and _has_any(text, ["waf", "rate limit", "ddos", "bot protection"]):
         return True
