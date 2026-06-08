@@ -6,7 +6,7 @@ import streamlit as st
 
 from agent.analyzer import analyze_architecture, detect_provider, render_report_markdown
 from agent.llm_enhancer import enhance_report_with_llm
-from agent.terraform_scanner import detect_terraform_risks
+from agent.terraform_scanner import detect_terraform_risks, generate_terraform_remediation_patch
 
 
 BASE_DIR = Path(__file__).parent
@@ -166,7 +166,8 @@ def run_analysis(architecture_text: str, source_label: str, use_llm: bool) -> No
     llm_message = ""
 
     if use_llm:
-        markdown_report, llm_message = enhance_report_with_llm(markdown_report, architecture_text)
+        with st.spinner("Enhancing report with Azure AI Foundry..."):
+            markdown_report, llm_message = enhance_report_with_llm(markdown_report, architecture_text)
 
     st.session_state["analysis"] = {
         "source_label": source_label,
@@ -334,7 +335,7 @@ def read_uploaded_file(uploaded_file) -> str:
 
 def render_iac_risks(risks: List[Dict[str, str]]) -> None:
     if not risks:
-        st.success("No obvious risky Terraform patterns detected by the placeholder scanner.")
+        st.success("No obvious risky Terraform patterns detected by the scanner.")
         return
 
     st.markdown("#### Detected IaC Risks")
@@ -359,7 +360,7 @@ def render_terraform_tab() -> None:
     )
 
     if not uploaded_files:
-        st.info("Upload one or more Terraform files to run a lightweight placeholder risk scan.")
+        st.info("Upload one or more Terraform files to run a lightweight risk scan.")
         return
 
     combined_content = []
@@ -373,8 +374,24 @@ def render_terraform_tab() -> None:
     risks = detect_terraform_risks(terraform_text)
     render_iac_risks(risks)
 
-    if st.button("Generate Remediation Patch (Coming Soon)"):
-        st.info("Coming soon: Terraform-aware remediation patch generation with human review.")
+    if st.session_state.get("terraform_source_text") != terraform_text:
+        st.session_state["terraform_source_text"] = terraform_text
+        st.session_state.pop("terraform_remediation_patch", None)
+
+    if st.button("Generate Remediation Patch"):
+        st.session_state["terraform_remediation_patch"] = generate_terraform_remediation_patch(terraform_text)
+
+    remediation_patch = st.session_state.get("terraform_remediation_patch")
+    if remediation_patch:
+        st.markdown("#### Suggested Remediation Patch")
+        st.warning("This patch is advisory. Review and test before applying with Terraform.")
+        st.code(remediation_patch, language="hcl")
+        st.download_button(
+            "Download Suggested Patch",
+            data=remediation_patch,
+            file_name="cloudsec-atlas-remediation.tf",
+            mime="text/plain",
+        )
 
 
 def render_analysis_output() -> None:
@@ -386,7 +403,13 @@ def render_analysis_output() -> None:
     st.divider()
     st.caption(f"Current report source: {analysis['source_label']}")
     if analysis["llm_message"]:
-        st.info(analysis["llm_message"])
+        message = analysis["llm_message"]
+        if message.startswith("LLM enhancement applied"):
+            st.success(message)
+        elif "failed" in message or "skipped" in message:
+            st.warning(message)
+        else:
+            st.info(message)
 
     render_report(
         markdown_report=analysis["markdown_report"],
@@ -407,8 +430,8 @@ def main() -> None:
 
     with st.sidebar:
         st.header("Analysis Mode")
-        st.write("Deterministic rules run offline. Optional LLM enhancement is prepared for Azure AI Foundry.")
-        use_llm = st.toggle("LLM Enhancement placeholder", value=False)
+        st.write("Deterministic rules run offline and remain the source of truth.")
+        use_llm = st.toggle("Enhance report with Azure AI Foundry", value=False)
         st.divider()
         st.markdown("**Demo flow**")
         st.write("Use the AWS public database scenario for the strongest end-to-end attack-path narrative.")
